@@ -92,13 +92,29 @@ auto main(int argc, char* argv[]) -> int try
 		Person attendant{input};
 		Person customer{input};
 
-		bool result = db.query(attendant, customer);
+		bool&& result = db.query(attendant, customer);
+
+		using namespace std::literals;
 		std::string* msg = new std::string{};
-		*msg = fmt::format(fmt::fg(fmt::color::green), "Operation has been completed successfully!");
+
 		if (result)
-			server->write(reinterpret_cast<std::byte*>(msg->data()), msg->size(), [msg](const asio::error_code& er, std::size_t transfered_size){
-				delete msg;
-			});
+		{
+			*msg = fmt::format(fmt::fg(fmt::color::green),
+			customer.fullname + " has been identified\n"s + attendant.fullname + " has been identified\n"s + "Query Success!\n"s +
+			"Query recorded to transaction database\n"s + "("s + customer.fullname + ", "s + attendant.fullname + ", ACCESS_OK)\n");
+		}
+
+		else
+		{
+			*msg = fmt::format(fmt::fg(fmt::color::dark_red),
+		   "Unknown Customer!\n"s + "Query recorded to transaction database\n"s + "This incident will be reported!\n"
+		   + "("s + customer.fullname + ", "s + attendant.fullname + ", ACCESS_DENIED)\n");
+		}
+
+		server->write(reinterpret_cast<std::byte*>(msg->data()), msg->size(), [msg](const asio::error_code& er, std::size_t transfered_size){
+			delete msg;
+		});
+
 	};
 
 

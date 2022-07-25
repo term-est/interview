@@ -27,9 +27,14 @@ public:
 
 	explicit Client(std::uint16_t port, T ReceiveCallback) : ReceiveCallback{ReceiveCallback}
 	{
+		asio::error_code er;
 		//the reason connection is not async is because integrating an async connect with the UI is too much of a hassle
-		socket.connect(asio::ip::tcp::endpoint{asio::ip::address_v4::from_string("127.0.0.1"), port});
-		socket.set_option(asio::socket_base::keep_alive{});
+		socket.connect(asio::ip::tcp::endpoint{asio::ip::address_v4::from_string("127.0.0.1"), port}, er);
+		socket.wait(asio::socket_base::wait_write);
+
+		if (er)
+			error{error_helper{-6, er.message()}};
+
 
 		context_runner = std::jthread{[&](){context.run();}};
 	}
@@ -66,9 +71,8 @@ private:
 
 		socket.async_receive(asio::buffer(buffer, 4096), [server = this](const asio::error_code& er, std::size_t transfer_size){
 			if (er)
-			{
-				return;
-			}
+				error{error_helper{-6, er.message()}};
+
 
 			server->buffer[transfer_size] = static_cast<std::byte>('\0');
 			server->ReceiveCallback(asio::buffer(server->buffer, transfer_size), transfer_size, server);
@@ -77,9 +81,9 @@ private:
 
 	void awaitWrite(const std::byte* data, std::size_t transfer_size, auto Callback)
 	{
+		awaitReceive();
 		socket.template async_write_some(asio::buffer(data, transfer_size), [server = this, Callback](const asio::error_code& er, std::size_t transfered_size){
 			Callback(er, transfered_size);
 		});
-		awaitReceive();
 	}
 };
